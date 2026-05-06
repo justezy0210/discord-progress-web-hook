@@ -32,6 +32,8 @@ files. Treat it like a password.
 
 ## Quick Test
 
+After `.env` contains a valid webhook URL, run:
+
 ```bash
 ./notify_run.sh "test sleep" -- bash -lc 'sleep 3; echo done'
 ```
@@ -41,6 +43,15 @@ Expected behavior:
 - terminal prints `done`
 - Discord receives a SUCCESS notification
 - the wrapper exits with code 0
+
+You can also send a direct notification without wrapping a command:
+
+```bash
+python3 discord_notify.py \
+  --job "direct webhook test" \
+  --status info \
+  --message "Discord webhook is configured"
+```
 
 Failure test:
 
@@ -67,6 +78,13 @@ nohup ./notify_run.sh --log blast.log "BLAST search" -- \
 The Discord message will include `blast.log` as the log path. The script does
 not upload log contents.
 
+Check the background process and log with normal shell tools:
+
+```bash
+jobs
+tail -f blast.log
+```
+
 ## Pipelines, Pipes, and Redirection
 
 If the command uses pipes, redirects, semicolons, or `&&`, run it through
@@ -83,6 +101,24 @@ If the command uses pipes, redirects, semicolons, or `&&`, run it through
 This reports one notification for the whole pipeline. If you want notification
 after each stage, wrap each stage separately.
 
+## Recommended Workflow
+
+1. Put the real webhook URL in `.env`.
+2. Keep `.env` untracked. It is ignored by `.gitignore`.
+3. Run long jobs through `notify_run.sh`.
+4. Use `--log path/to/log` when the job runs in the background.
+5. For complex shell commands, wrap the whole command in `bash -lc`.
+
+Example:
+
+```bash
+nohup ./notify_run.sh --log pipeline.log "sequence pipeline" -- bash -lc '
+  makeblastdb -in proteins.fa -dbtype prot &&
+  blastp -query proteins.fa -db proteins.fa -out all.blast &&
+  MCScanX all
+' > pipeline.log 2>&1 &
+```
+
 ## Direct Python Notification
 
 Use `discord_notify.py` directly when another script already has the exit code
@@ -98,6 +134,23 @@ python3 discord_notify.py \
 
 `discord_notify.py` reads `DISCORD_WEBHOOK_URL` from the environment first, then
 from `.env` unless `--env-file` points to another file.
+
+Use `--dry-run` to inspect the Discord payload without sending a message:
+
+```bash
+python3 discord_notify.py \
+  --dry-run \
+  --job "payload check" \
+  --exit-code 0 \
+  --seconds 60
+```
+
+## Troubleshooting
+
+- `DISCORD_WEBHOOK_URL is not set`: create `.env` or export the variable.
+- `Temporary failure in name resolution`: the environment cannot reach Discord.
+- HTTP 401 or 404: the webhook URL is invalid, deleted, or copied incorrectly.
+- HTTP 403: Discord or a network layer blocked the request.
 
 ## Files
 

@@ -155,7 +155,10 @@ def post_webhook(webhook_url: str, payload: Dict[str, object], timeout: float) -
     request = urllib.request.Request(
         webhook_url,
         data=json.dumps(payload).encode("utf-8"),
-        headers={"Content-Type": "application/json"},
+        headers={
+            "Content-Type": "application/json",
+            "User-Agent": "discord-progress-web-hook/1.0",
+        },
         method="POST",
     )
     with urllib.request.urlopen(request, timeout=timeout) as response:
